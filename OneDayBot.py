@@ -1,52 +1,32 @@
-import os
-import asyncio
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from telegram import Update
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    ContextTypes,
-    PicklePersistence,
-)
-from telegram.error import Conflict
+import os
 
-# Ініціалізація бота
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-PERSISTENCE_FILE = "bot_data.pickle"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Створення додатка зі збереженням стану
-persistence = PicklePersistence(filepath=PERSISTENCE_FILE)
-app = Application.builder().token(TOKEN).persistence(persistence).build()
-
-# Обробник команди /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔄 Бот успішно перезапущений!")
+    await update.message.reply_text("✅ Бот працює!")
 
-# Обробник помилок
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    print(f"⚠️ Помилка: {context.error}")
+async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    help_text = """
+Доступні команди:
+/start - Перевірити, чи бот працює
+/help - Отримати довідку
+"""
+    await update.message.reply_text(help_text)
 
-# Основна функція
-async def main():
-    # Додаємо обробники
+async def _post_init(app):
+    # гарантуємо, що polling не конфліктує з можливим webhook
+    await app.bot.delete_webhook(drop_pending_updates=True)
+
+def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).post_init(_post_init).build()
+    
+    # Додаємо обробники команд
     app.add_handler(CommandHandler("start", start))
-    app.add_error_handler(error_handler)
-
-    # Запускаємо бота
-    try:
-        print("🤖 Запуск бота...")
-        await app.bot.delete_webhook(drop_pending_updates=True)
-        await app.initialize()
-        await app.start()
-        print("✅ Бот успішно запущений!")
-        while True:
-            await asyncio.sleep(3600)  # Нескінченний цикл
-    except Conflict:
-        print("⚠️ Виявлено конфлікт: інший екземпляр бота вже працює")
-    except Exception as e:
-        print(f"❌ Критична помилка: {e}")
-    finally:
-        await app.stop()
-        await app.shutdown()
+    app.add_handler(CommandHandler("help", help))
+    
+    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
